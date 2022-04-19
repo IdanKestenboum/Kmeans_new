@@ -5,21 +5,46 @@
 #include <limits.h>
 #include <math.h>
 #include <sys/types.h>
-
-struct cluster
-{
-    double* currCentroid;
-    double* prevCentroid;
-};
-
-ssize_t getline(char **, size_t*, FILE *);
+/*functions:*/
 void printArray(double*, int);
-double* subtract_vectors(double* res_vector,double* vector1,double* vector2, int d);
+void printArrayInt(int*, int);
+
+int check_epsilon_distance(double **curCent,double **prevCent,int K,int d);
 double dot_product(double* vector1,int d);
-int find_cluster_to_point(double* res_vector,struct cluster** cluster_list,double* point,int K,int d);
-void find_cluster_to_all_points(double* res_vector,struct cluster** cluster_list,double **points_list, int* point_cluster_array,int row_counter,int K,int d);
-int update_centroid(double* temp,struct cluster** cluster_list,double **points_list, int* point_cluster_array,int row_counter,int K,int d);
-int check_epsilon_distance(double* res_vector,struct cluster** cluster_list, int K,int d);
+double dot_product_sub(double* vector1,double* vector2,int d);
+
+/*check if the delta of centroids is less than epsilon*/
+int check_epsilon_distance(double **curCent,double **prevCent,int K,int d){
+    int i;
+    for(i=0;i<K;i++){
+        double res;
+        res=dot_product_sub(curCent[i],prevCent[i],d);
+        if (res>0.001){
+            return 1;
+        }
+
+    }
+    return 0;
+}
+
+
+double dot_product(double* vector1,int d){
+        double res=0;
+        int i;
+        for (i=0;i<d;i++){
+              res+=pow(vector1[i],2);
+          }
+        return sqrt(res);
+    }
+
+double dot_product_sub(double* vector1,double* vector2,int d){
+        double res=0;
+        int i;
+        for (i=0;i<d;i++){
+              res+=pow(vector1[i]-vector2[i],2);
+          }
+        return sqrt(res);
+    }
 
 
 void printArray(double* array,int d){
@@ -34,136 +59,53 @@ void printArray(double* array,int d){
     }
 }
 
-/*vector operations*/
-double* subtract_vectors(double* res_vector,double* vector1,double* vector2,int d){
-    int i;
-    for (i=0;i<d;i++){
-            res_vector[i]=vector1[i]-vector2[i];
-        }
-    return res_vector;
-}
-double dot_product(double* vector1,int d){
-        double res=0;
-        int i;
-        for (i=0;i<d;i++){
-              res+=vector1[i]*vector1[i];
-          }
-        return res;
-    }
-/*find the min cluster to a single point and return it*/
-int find_cluster_to_point(double* res_vector,struct cluster** cluster_list,double* point,int K,int d){
-    int min_clust;
-    double min_value=__FLT_MAX__;
-    double temp_value;
-    int i;
-    for (i=0;i<K;i++){
-        temp_value=dot_product(subtract_vectors(res_vector,point,cluster_list[i]->currCentroid,d),d);
-        if (temp_value<min_value){
-            min_value=temp_value;
-            min_clust=i;
-        }
-    }
-    return min_clust;
-}
-/*find to all points and assign to point_cluster_array the min clusters so that point_cluster_array[i] is the cluster of points_list[i]*/
-void find_cluster_to_all_points(double* res_vector,struct cluster** cluster_list,double **points_list, int* point_cluster_array,int row_counter,int K,int d){
-    int i;
-    for (i=0;i<row_counter;i++){
-        point_cluster_array[i]=find_cluster_to_point(res_vector,cluster_list,points_list[i],K,d);
-
-    }
-}
-
-/*update centroid - run on point_cluster_array, sum corresponding points and average out*/
-int update_centroid(double* temp,struct cluster** cluster_list,double **points_list, int* point_cluster_array,int row_counter,int K,int d){
-    int i;
-    int count;
+void printArrayInt(int* array,int d){
     int j;
-    int k;
-  
-    for (i = 0; i< K ; i++){
-        count=0;
-        for(j =0; j< row_counter ; j++){
-            if(i==point_cluster_array[j]){ 
-                count+=1;
-                for (k=0;k<d;k++){
-                     cluster_list[i]->prevCentroid[k]+=points_list[j][k];
-                }                    
-            }
+    for(j = 0; j < d; j++) {
+        if(j<d-1){
+            printf("%d,", array[j]);
         }
-        printf("%d\n",i);
-        if (count==0){
-            printf("An Error Has Occurred");
-            exit(1);
+        else{
+            printf("%d", array[j]);
         }
-        for (k=0;k<d;k++){
-             cluster_list[i]->prevCentroid[k]= cluster_list[i]->prevCentroid[k]/count;
-        }
-        for (j = 0; j < d; j ++) {
-            temp[j]=cluster_list[i]->prevCentroid[j];
-        }
-        for (j = 0; j < d; j ++) {
-            cluster_list[i]->prevCentroid[j]=cluster_list[i]->currCentroid[j];
-            cluster_list[i]->currCentroid[j]=temp[j];
-    }}
-    return 0;
-      
     }
-
-/*check if the delta of centroids is less than epsilon*/
-int check_epsilon_distance(double* res_vector,struct cluster** cluster_list,int K,int d){
-    int i;
-    for(i=0;i<K;i++){
-        double res;
-        res=sqrt(dot_product(subtract_vectors(res_vector,cluster_list[i]->currCentroid,cluster_list[i]->prevCentroid,d),d));
-        if (res>0.001){
-            return 1;
-        }
-
-    }
-    return 0;
 }
 
-int main(int argc, char** argv)
-{
+
+int main(int argc, char** argv){
     FILE * fp;
     FILE * of;
-    char * line = NULL;
+    int k;
+    int count;
     double **points_list;
     int d=1;
-    ssize_t read;
-    size_t len = 0;
-    
     int K;
     int max_iter;
     int input_file;
     int output_file;
     int i;
-    char *token;
-    double* roni;
-    struct cluster** clusters;
     int row_counter;
     int j;
-    int* point_cluster_array;
-    int success_update;
+    long len;
+    char *array_input_char;
+    char * token1;
+    double **curClusters;
+    double **prevClusters;
+    int * point_cluster_array;
     double single_float;
     int iteration;
-    double* temp;
+    int min_clust;
+    double min_value=__FLT_MAX__;
+    double temp_value;
+    int strlen_1;
+    
+    fp = NULL;
+    of = NULL;
 
-    /*build arrays*/
-    double* res_vector;
 
-    temp=calloc(d,sizeof(double));
-    if(temp==NULL){
-        printf("An Error Has Occured");
-        exit(1);
-    };
-    res_vector=calloc(d,sizeof(double));
-    if(res_vector==NULL){
-        printf("An Error Has Occured");
-        exit(1);
-    };
 
+
+/*check input*/
     if (argc==5){
         K=atoi(argv[1]);
         if ((K!=atof(argv[1]))|( K<2)){
@@ -190,108 +132,187 @@ int main(int argc, char** argv)
     }
     else{
         printf("Invalid Input!");
-    } 
-   
-    /*find n,d in order to build matrix*/
+    }
+
+/*recieve input*/
     fp = fopen(argv[input_file], "r");
-    if (fp == NULL)
-        exit(1);
-    
-    row_counter=0;
-    while ((read = getline(&line, &len, fp)) != -1) {
-        row_counter++;
-        if (d==1){
-            for (i=0; line[i]; line[i]==',' ? d++,*line++ : *line++);
-        }
+    if (fp == NULL) {
+        printf("An Error Has Occurred");
+        return 1;
     }
     
-    if (row_counter<=K){
-        printf("Invalid Input!");
+    fseek(fp, 0, SEEK_END);
+    len = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    array_input_char = malloc(sizeof(char) * (len+ 1));
+    if (array_input_char == NULL) {
+        printf("An Error Has Occurred");
+        return 1;
+    }
+    array_input_char[len] = '\0';
+    
+    fread(array_input_char, sizeof(char), len, fp);
+    fclose(fp);
+    
+    /* find the value of d */
+    
+    for (token1 = array_input_char; *token1 != '\n'; ++token1) 
+    {
+        if (*token1 == ',')
+        {
+             ++d;
+        }
+    }
+  
+    /* find row_counter */
+    row_counter = 0;
+    for ( ; *token1 != '\0'; ++token1) {
+        if (*token1 == '\n') { 
+            ++row_counter; 
+            *token1 = '\0';
+            }
+    }
+    
+   
+    /* insert values from strings to doubles tp the final matrix*/   
+    points_list = calloc(row_counter, sizeof(double*));
+    if (points_list == NULL) {
+        printf("An Error Has Occurred");
         return 1;
     }
 
-    /*build matrix*/
-    points_list=calloc(row_counter,sizeof(void*));
-    if(points_list==NULL){
-        printf("An Error Has Occurred");
-        return 1;
-    };
-    for (i=0;i<row_counter;i++){
-        points_list[i]=calloc(d,sizeof(double));
-        if(points_list[i]==NULL){
-        printf("An Error Has Occurred");
-        return 1;
-    };
-    }
-    
-    
-    /*load values to matrix*/
-    rewind(fp);
-    i=0;
-    while ((read = getline(&line, &len, fp)) != -1) {
-        int j=0;
-        token=strtok(line,",");
-        while (token!=NULL){
-            roni=points_list[i];
-            roni[j]=atof(token);
-            token=strtok(NULL,",");
-            j++;
+    for (i = 0 ; i < row_counter ; i++) {
+        points_list[i] = calloc(d, sizeof(double));
+    }   
+
+    for (i = 0 ; i < row_counter ; i++) {
+        for ( token1 = array_input_char; *token1 != '\0'; ++token1) 
+        { 
+            if (*token1 == ',') 
+                { 
+                *token1 = '\0';
+                }
         }
-        i++;
+        for (j = 0; j < d; j ++) {
+            points_list[i][j] = atof(array_input_char);
+            strlen_1= strlen(array_input_char);
+            array_input_char = array_input_char + strlen_1 + 1;
         }
-    
-    /*build k centroid array*/
-    clusters = calloc(K,sizeof(struct cluster*));
-    if(clusters==NULL){
+    }    
+    /*bulid k curcent and prevcent array*/
+    curClusters = malloc(K*sizeof(double*));
+    prevClusters = malloc(K*sizeof(double*));
+    if((prevClusters==NULL)||(curClusters==NULL)){
         printf("An Error Has Occurred");
         return 1;
     }
-    
+
     for(i=0 ; i<K ; i++ ){
-        clusters[i] = malloc(sizeof(struct cluster));
-        if(clusters[i]==NULL){
-        printf("An Error Has Occurred");
-        return 1;
-    }
-        clusters[i]->currCentroid = calloc(d, sizeof(double));
-        clusters[i]->prevCentroid = calloc(d, sizeof(double));
-        if(clusters[i]->currCentroid==NULL){
+        curClusters[i] = malloc(d*sizeof(double));
+        prevClusters[i] = malloc(d*sizeof(double));
+        if((curClusters[i]==NULL)||(prevClusters[i]==NULL)){
             printf("An Error Has Occurred");
             return 1;
         }
         for(j=0;j<d;j++) {
-            clusters[i]->currCentroid[j] = points_list[i][j];
-            clusters[i]->prevCentroid[j] = points_list[i][j];
+            curClusters[i][j] = points_list[i][j];
+            prevClusters[i][j] = points_list[i][j];
         }
-
     }
-
-    /*build array that connects point to cluster by index*/
     
-    point_cluster_array=calloc(row_counter,sizeof(int));
+     /*build array that connects point to cluster by index*/
+    point_cluster_array=malloc(row_counter*sizeof(int));
     if(point_cluster_array==NULL){
         printf("An Error Has Occured");
         exit(1);
     };
 
-    
-    iteration=1;
-    find_cluster_to_all_points(res_vector,clusters,points_list,point_cluster_array, row_counter,K,d);
-    
-    success_update=update_centroid(temp,clusters,points_list,point_cluster_array,row_counter,K,d);
-    if (success_update==1){
-        printf("An Error Has Occurred");
-        exit(1);
+    /*find to each point her centroid*/
+    for(i =0; i< row_counter;i++){
+        min_value=__FLT_MAX__;
+        for(j=0;j<K;j++){
+            temp_value = dot_product_sub(points_list[i], curClusters[j],d);
+
+
+             if (temp_value<min_value){
+                min_value=temp_value;
+                min_clust=j;
+            }
+
+        }
+        point_cluster_array[i]=min_clust;
     }
-    while ((iteration<max_iter) && (check_epsilon_distance(res_vector,clusters,K,d)==1)){
-            find_cluster_to_all_points(res_vector,clusters,points_list,point_cluster_array, row_counter,K,d);
-            success_update=update_centroid(temp,clusters,points_list,point_cluster_array,row_counter,K,d);
-            if (success_update==1){
+   /* printArrayInt(point_cluster_array,row_counter);*/
+/*finds new centroid*/
+    for(i=0 ; i<K ; i++){
+        count =0;
+        for(j=0 ;j<d ;j++){
+            curClusters[i][j]=0.0;
+        }
+        for(j =0; j< row_counter ; j++){
+            if(i==point_cluster_array[j]){
+                count+=1;
+                for (k=0;k<d;k++){
+                    curClusters[i][k]+=points_list[j][k];
+                }                    
+            }
+        }
+        if (count==0){
+            printf("An Error Has Occurred");
+            exit(1);
+        }
+        for (k=0;k<d;k++){
+            curClusters[i][k]=curClusters[i][k] / count;
+        }
+    }
+
+
+    iteration=1;
+
+    while ((iteration<max_iter) && (check_epsilon_distance(curClusters,prevClusters,K,d)==1)){
+        iteration+=1;
+        /*find cluster to all points*/
+        for(i =0; i< row_counter;i++){
+            min_value=__FLT_MAX__;
+            for(j=0;j<K;j++){
+                temp_value = dot_product_sub(points_list[i], curClusters[j],d);
+                if (temp_value<min_value){
+                    min_value=temp_value;
+                    min_clust=j;
+                }
+            }
+            point_cluster_array[i]=min_clust;
+        }
+        /*copy cur to prev before the change*/
+        for(i=0 ; i<K ; i++){
+            for(j=0;j<d;j++){
+                prevClusters[i][j]=curClusters[i][j];
+                curClusters[i][j]=0.0;
+            }
+        }
+
+        /*update centroid*/
+        for(i=0 ; i<K ; i++){
+            count =0;
+            for(j =0; j< row_counter ; j++){
+                if(i==point_cluster_array[j]){
+                    count+=1;
+                    for (k=0;k<d;k++){
+                        curClusters[i][k]+=points_list[j][k];
+                    }                    
+                }
+            }
+            if (count==0){
                 printf("An Error Has Occurred");
                 exit(1);
+            }
+            for (k=0;k<d;k++){
+                curClusters[i][k]=curClusters[i][k]/count;
+            }
+        }
     }
-            iteration +=1;
-    }
+/*write back to the file*/
 
     of  = fopen(argv[output_file], "w");
     if (of==NULL){
@@ -302,21 +323,24 @@ int main(int argc, char** argv)
     for (i=0;i<K;i++){
         int j;
         for(j=0;j<d-1;j++){
-            single_float=clusters[i]->currCentroid[j];
-            /*printf("%.4f",single_float);*/
+            single_float=curClusters[i][j];
             fprintf(of,"%.4f",single_float);     
             fputs(",",of);
-            /*printf(",");*/
         }
-        single_float=clusters[i]->currCentroid[d-1];
-        /*printf("%.4f",single_float);*/
+        single_float=curClusters[i][d-1];
+        
         fprintf(of,"%.4f",single_float);
         fputs("\n",of);  
-        /*printf("\n");  */
+        
     }
     fclose(of);
-    free(clusters);
+    free(curClusters);
+    free(prevClusters);
     free(point_cluster_array);
     free(points_list);
+    
+    
+
     return 0;
+
 }
