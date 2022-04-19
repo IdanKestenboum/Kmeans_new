@@ -10,4 +10,4 @@ def check_two_files_are_similar(file1,file2):
         if f1[i]!=f2[i]:
             print('problem at index ',i,f1[i] ,'does not equal',f2[i])
             
-check_two_files_are_similar('idan4.txt','idan5.txt')
+check_two_files_are_similar('input_2.txt','idan5.txt')

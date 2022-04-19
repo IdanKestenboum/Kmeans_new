@@ -174,6 +174,11 @@ int main(int argc, char** argv){
             *token1 = '\0';
             }
     }
+
+    if (K>row_counter){
+        printf("Invalid Input!");
+        return 1;
+    }
     
    
     /* insert values from strings to doubles tp the final matrix*/   
