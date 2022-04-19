@@ -132,6 +132,7 @@ int main(int argc, char** argv){
     }
     else{
         printf("Invalid Input!");
+        return 1;
     }
 
 /*recieve input*/
@@ -184,6 +185,10 @@ int main(int argc, char** argv){
 
     for (i = 0 ; i < row_counter ; i++) {
         points_list[i] = calloc(d, sizeof(double));
+        if (points_list[i] == NULL) {
+        printf("An Error Has Occurred");
+        return 1;
+    }
     }   
 
     for (i = 0 ; i < row_counter ; i++) {
